@@ -11,13 +11,6 @@ This is the fullstack version of the node pizza app with raw node api and html c
     * util module
     * debug module
 
-  ### Continuous Integration
-    * Travis CI & Codeclimate for test automation
-    * Coveralls for test coverage report
-  
-  ### Test-Driven Development
-    * Mocha, Chai and Supertest for api route testing
-
 ## Installation.
   * Install [Nodejs](https://nodejs.org/en/download/)
   * Clone this repo ``` git clone https://github.com/itsdenty/andela-vlf-challenge.git ```
