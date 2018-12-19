@@ -293,3 +293,7 @@ td a, td a:hover, td a:active{
   margin-top: 40px;
   display: none;
 }
+.mini {
+  width: 120px;
+  font-size: 10px;
+}

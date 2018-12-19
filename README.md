@@ -24,6 +24,16 @@ This is the fullstack version of the node pizza app with raw node api and html c
   * Run ```node index.js``` to initiate server
   * Modify lib/config.js to provision mailgun api key
 
+## Pages available on the ui 
+* User login page for loging into the application  
+* Account creation page for creating a new user account
+* Users can check their existing details via the users get endpoint
+* Account edit page for editing user details for changing user password and deleting user account
+* Dashboard page for viewing pizza menu, selecting pizza to order, quantity to order and placing the order.
+* Account deleted page for notifying the user that their account has been deleted 
+* Cart cleared page for notifying the user that thier order cart has been emptied 
+* Order placed page for notifying users that their order has been placed and hence they can check  their email for details
+
 ## Features covered by the api
 * Users canlog in and logout of the app. via the token get and delete endpoints, tokens expires after 24 hours
 * Users can be created via the users post endpoint

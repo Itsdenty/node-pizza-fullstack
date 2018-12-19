@@ -92,6 +92,30 @@ app.bindLogoutButton = function(){
   });
 };
 
+// Bind the delete cart button
+app.bindDeleteCartButton = function(){
+  document.getElementById("deleteCart").addEventListener("click", function(e){
+
+    // Stop it from redirecting anywhere
+    e.preventDefault();
+    // Log the user out
+    app.deleteCart();
+
+  });
+};
+
+// Bind place order button
+app.bindPlaceOrderButton = function(){
+  document.getElementById("placeOrder").addEventListener("click", function(e){
+
+    // Stop it from redirecting anywhere
+    e.preventDefault();
+    // Log the user out
+    app.placeOrder();
+
+  });
+};
+
 // Log the user out then redirect them
 app.logUserOut = function(){
   // Get the current token id
@@ -114,17 +138,15 @@ app.logUserOut = function(){
 // Bind the forms
 app.bindForms = function(){
   if(document.querySelector("form")){
-
     var allForms = document.querySelectorAll("form");
     for(var i = 0; i < allForms.length; i++){
         allForms[i].addEventListener("submit", function(e){
-
         // Stop it from submitting
         e.preventDefault();
         var formId = this.id;
         var path = this.action;
         var method = this.method.toUpperCase();
-
+          console.log(formId,path, method);
         // Hide the error message (if it's currently shown due to a previous error)
         document.querySelector("#"+formId+" .formError").style.display = 'none';
 
@@ -156,7 +178,10 @@ app.bindForms = function(){
               if(classOfElement.indexOf('multiselect') > -1){
                 if(elementIsChecked){
                   payload[nameOfElement] = typeof(payload[nameOfElement]) == 'object' && payload[nameOfElement] instanceof Array ? payload[nameOfElement] : [];
-                  payload[nameOfElement].push(valueOfElement);
+                  var quantity = document.getElementById(valueOfElement + '-update')
+                  var item = {'id' : valueOfElement, 'quantity' : quantity.value};
+                  console.log(elementIsChecked, classOfElement, valueOfElement, item);
+                  payload[nameOfElement].push(item);
                 }
               } else {
                 payload[nameOfElement] = valueOfElement;
@@ -248,14 +273,8 @@ app.formResponseProcessor = function(formId,requestPayload,responsePayload){
   }
 
   // If the user just created a new check successfully, redirect back to the dashboard
-  if(formId == 'checksCreate'){
-    window.location = '/items';
-  }
-
-
-  // If the user just deleted a check, redirect them to the dashboard
-  if(formId == 'checksEdit2'){
-    window.location = '/items';
+  if(formId == 'itemList'){
+    window.location.reload();
   }
 };
 
@@ -340,41 +359,63 @@ app.loadDataOnPage = function(){
   var bodyClasses = document.querySelector("body").classList;
   var primaryClass = typeof(bodyClasses[0]) == 'string' ? bodyClasses[0] : false;
 
-  // Logic for account settings page
-  if(primaryClass == 'accountEdit'){
-    app.loadAccountEditPage();
-  }
-
   // Logic for dashboard page
   if(primaryClass == 'itemsList'){
     app.loadItemsListPage();
   }
-  // Logic for check details page
-  if(primaryClass == 'checksEdit'){
-    app.loadChecksEditPage();
+
+  // Logic for account settings page
+  if(primaryClass == 'accountEdit'){
+    app.loadAccountEditPage();
   }
+};
+
+// Load the account edit page specifically
+app.deleteCart = function(){
+  app.client.request(undefined,'api/carts','DELETE',undefined,undefined,function(statusCode,responsePayload){
+    if(statusCode == 200){
+      console.log('success');
+      window.location = '/cart/cleared';
+    } else {
+      // If the request comes back as something other than 200, log the user our (on the assumption that the api is temporarily down or the users token is bad)
+      app.logUserOut();
+    }
+  });
+};
+
+// place selected pizza order
+app.placeOrder = function(){
+  app.client.request(undefined,'api/order','GET',undefined,undefined,function(statusCode,responsePayload){
+    if(statusCode == 200){
+      console.log('success');
+      window.location = '/order/placed';
+    } else {
+      // If the request comes back as something other than 200, log the user our (on the assumption that the api is temporarily down or the users token is bad)
+      app.logUserOut();
+    }
+  });
 };
 
 // Load the account edit page specifically
 app.loadAccountEditPage = function(){
   // Get the phone number from the current token, or log the user out if none is there
-  var phone = typeof(app.config.sessionToken.phone) == 'string' ? app.config.sessionToken.phone : false;
-  if(phone){
+  var email = typeof(app.config.sessionToken.email) == 'string' ? app.config.sessionToken.email : false;
+  if(email){
     // Fetch the user data
     var queryStringObject = {
-      'phone' : phone
+      'email' : email
     };
     app.client.request(undefined,'api/users','GET',queryStringObject,undefined,function(statusCode,responsePayload){
       if(statusCode == 200){
         // Put the data into the forms as values where needed
-        document.querySelector("#accountEdit1 .firstNameInput").value = responsePayload.firstName;
-        document.querySelector("#accountEdit1 .lastNameInput").value = responsePayload.lastName;
-        document.querySelector("#accountEdit1 .displayPhoneInput").value = responsePayload.phone;
+        document.querySelector("#accountEdit1 .customerNameInput").value = responsePayload.customerName;
+        document.querySelector("#accountEdit1 .addressInput").value = responsePayload.address;
+        document.querySelector("#accountEdit1 .displayEmailInput").value = responsePayload.email;
 
         // Put the hidden phone field into both forms
         var hiddenPhoneInputs = document.querySelectorAll("input.hiddenPhoneNumberInput");
         for(var i = 0; i < hiddenPhoneInputs.length; i++){
-            hiddenPhoneInputs[i].value = responsePayload.phone;
+            hiddenPhoneInputs[i].value = responsePayload.email;
         }
 
       } else {
@@ -386,86 +427,82 @@ app.loadAccountEditPage = function(){
     app.logUserOut();
   }
 };
+
 // Load the dashboard page specifically
 app.loadItemsListPage = function(){
-    // Fetch the cart/items data
-    // var queryStringObject = {
-    //   'phone' : phone
-    // };
     app.client.request(undefined,'api/carts','GET',undefined,undefined,function(statusCode,responsePayload){
+      // Check if statusCodes is neither 403 nor 400 so the payload can be processed
       if(statusCode != 403 || statusCode != 400){
-
-        // Determine how many checks the user has
-        // var allChecks = typeof(responsePayload.items) == 'object' && responsePayload.checks instanceof Array && responsePayload.checks.length > 0 ? responsePayload.checks : [];
+        
+        // check if the statusCode of the response is 200 so the page would be customized for existing order
         if(statusCode == 200){
           var cartData = responsePayload.cartItems;
           var cartItems = [];
+          var cartQuantities = [];
+          var cartRow = 0;
           var items = responsePayload.items;
-          // // Show each created check as a new row in the table
+          // Retrieve each item and add it to a table row
           items.forEach(function(item){
               cartData.forEach(function(cartItem){
                 cartItems.push(cartItem.id);
+                cartQuantities.push(cartItem.quantity);
               });
-              // Make the check data into a table row
+              var table = document.getElementById("checksListTable");
+              var tr = table.insertRow(-1);
+              tr.classList.add('checkRow');
+              var td0 = tr.insertCell(0);
+              var td1 = tr.insertCell(1);
+              var td2 = tr.insertCell(2);
+              var td3 = tr.insertCell(3);
+              var td4 = tr.insertCell(4);
+              td0.innerHTML = item.id;
+              td1.innerHTML = item.name;
+              td2.innerHTML = item.price + ' USD';
+              // if the item is in the cart, check it and add the quantity
               if(cartItems.indexOf(item.id) > -1) {
-                var table = document.getElementById("checksListTable");
-                var tr = table.insertRow(-1);
-                tr.classList.add('checkRow');
-                var td0 = tr.insertCell(0);
-                var td1 = tr.insertCell(1);
-                var td2 = tr.insertCell(2);
-                var td3 = tr.insertCell(3);
-                // var td4 = tr.insertCell(4);
-                td0.innerHTML = responsePayload.id;
-                td1.innerHTML = responsePayload.name;
-                td2.innerHTML = responsePayload.price + ' USD';
-                td3.innerHTML = "<input type=\"checkbox\" class=\"successCodesInput multiselect intval\" name=\"successCodes\" value=\""+ item.id+ "\" checked>404";
+                td3.innerHTML = "<input type=\"checkbox\" class=\"successCodesInput multiselect\" name=\"items\" value=\""+ item.id+ "\" checked>";
+                td4.innerHTML = "<input type=\"text\" id=\"" + item.id + "-update\" name=\"" + item.id + "-update\" value=\"" + cartQuantities[cartRow] + "\">";
+                cartRow++;
               } else {
-                var table = document.getElementById("checksListTable");
-                var tr = table.insertRow(-1);
-                tr.classList.add('checkRow');
-                var td0 = tr.insertCell(0);
-                var td1 = tr.insertCell(1);
-                var td2 = tr.insertCell(2);
-                var td3 = tr.insertCell(3);
-                // var td4 = tr.insertCell(4);
-                td0.innerHTML = responsePayload.id;
-                td1.innerHTML = responsePayload.name;
-                td2.innerHTML = responsePayload.price + ' USD';
-                td3.innerHTML = "<input type=\"checkbox\" class=\"successCodesInput multiselect intval\" name=\"successCodes\" value=\""+ item.id+ "\">404";
+                td3.innerHTML = "<input type=\"checkbox\" class=\"successCodesInput multiselect\" name=\"items\" value=\""+ item.id+ "\">";
+                td4.innerHTML = "<input type=\"text\" id=\"" + item.id + "-update\">" 
               }
             });
             var table = document.getElementById("checksListTable");
-            var buttons = "<input type=\"button\" class=\"cta green\" href=\"Update Cart\">";
-              buttons += "<input type=\"button\" class=\"cta green\" href=\"Delete Cart\">";
-            table.append(buttons);
-        } else {
-          // // Show 'you have no checks' message
-          // document.getElementById("noChecksMessage").style.display = 'table-row';
+            // create button for order/cart actions
+            var buttons = "<input type=\"hidden\" name=\"_method\" value=\"PUT\">";
+            buttons += "<input type=\"button\" id=\"deleteCart\" class=\"cta red mini\" value=\"Delete Cart\">";
+            buttons += "<input type=\"submit\" class=\"cta green mini\" value=\"Update Cart\">";
+            buttons += "<input type=\"button\" id=\"placeOrder\" class=\"cta green mini\" value=\"Place Order\">";
+            // add the buttons to the table element
+            table.innerHTML += buttons;
+            // Bind delete cart button
+            app.bindDeleteCartButton();
 
-          // // Show the createCheck CTA
-          // document.getElementById("createCheckCTA").style.display = 'block';
+            // Bind place order button
+            app.bindPlaceOrderButton();
+        } else {
           var items = responsePayload.items;
           console.log(items);
-          // // Show each created check as a new row in the table
+          // Retrieve each item and add it to a table row
           items.forEach(function(item){
-              // Make the check data into a table row
-                var table = document.getElementById("checksListTable");
-                var tr = table.insertRow(-1);
-                tr.classList.add('checkRow');
-                var td0 = tr.insertCell(0);
-                var td1 = tr.insertCell(1);
-                var td2 = tr.insertCell(2);
-                var td3 = tr.insertCell(3);
-                // var td4 = tr.insertCell(4);
-                td0.innerHTML = item.id;
-                td1.innerHTML = item.name;
-                td2.innerHTML = item.price + ' USD';
-                td3.innerHTML = "<input type=\"checkbox\" class=\"successCodesInput multiselect intval\" name=\"successCodes\" value=\""+ item.id+ "\">";
-            });
             var table = document.getElementById("checksListTable");
-            var buttons = "<input type=\"button\" class=\"cta green\" value=\"Add to cart\">";
-            table.innerHTML += buttons;
+            var tr = table.insertRow(-1);
+            tr.classList.add('checkRow');
+            var td0 = tr.insertCell(0);
+            var td1 = tr.insertCell(1);
+            var td2 = tr.insertCell(2);
+            var td3 = tr.insertCell(3);
+            var td4 = tr.insertCell(4);
+            td0.innerHTML = item.id;
+            td1.innerHTML = item.name;
+            td2.innerHTML = item.price + ' USD';
+            td3.innerHTML = "<input type=\"checkbox\" class=\"successCodesInput multiselect\" name=\"items\" value=\""+ item.id+ "\">";
+            td4.innerHTML = "<input type=\"text\" id=\"" + item.id + "-update\">"
+          });
+            var table = document.getElementById("checksListTable");
+            var button = "<input type=\"submit\" class=\"cta green\" value=\"Add to Cart\">";
+            table.innerHTML += button;
         }
       } else {
         // If the request comes back as something other than 200, log the user our (on the assumption that the api is temporarily down or the users token is bad)
@@ -474,57 +511,6 @@ app.loadItemsListPage = function(){
     });
   };
 
-// Load the checks edit page specifically
-app.loadChecksEditPage = function(){
-  // Get the check id from the query string, if none is found then redirect back to dashboard
-  var id = typeof(window.location.href.split('=')[1]) == 'string' && window.location.href.split('=')[1].length > 0 ? window.location.href.split('=')[1] : false;
-  if(id){
-    // Fetch the check data
-    var queryStringObject = {
-    'id' : id
-    };
-    app.client.request(undefined,'api/checks','GET',queryStringObject,undefined,function(statusCode,responsePayload){
-    if(statusCode == 200){
-
-      // Put the hidden id field into both forms
-      var hiddenIdInputs = document.querySelectorAll("input.hiddenIdInput");
-      for(var i = 0; i < hiddenIdInputs.length; i++){
-          hiddenIdInputs[i].value = responsePayload.id;
-      }
-
-      // Put the data into the top form as values where needed
-      document.querySelector("#checksEdit1 .displayIdInput").value = responsePayload.id;
-      document.querySelector("#checksEdit1 .displayStateInput").value = responsePayload.state;
-      document.querySelector("#checksEdit1 .protocolInput").value = responsePayload.protocol;
-      document.querySelector("#checksEdit1 .urlInput").value = responsePayload.url;
-      document.querySelector("#checksEdit1 .methodInput").value = responsePayload.method;
-      document.querySelector("#checksEdit1 .timeoutInput").value = responsePayload.timeoutSeconds;
-      var successCodeCheckboxes = document.querySelectorAll("#checksEdit1 input.successCodesInput");
-      for(var i = 0; i < successCodeCheckboxes.length; i++){
-        if(responsePayload.successCodes.indexOf(parseInt(successCodeCheckboxes[i].value)) > -1){
-          successCodeCheckboxes[i].checked = true;
-        }
-      }
-    } else {
-      // If the request comes back as something other than 200, redirect back to dashboard
-      window.location = '/checks/all';
-    }
-    });
-  } else {
-  window.location = '/checks/all';
-  }
-};
-
-// Loop to renew token often
-app.tokenRenewalLoop = function(){
-  setInterval(function(){
-    app.renewToken(function(err){
-      if(!err){
-        console.log("Token renewed successfully @ "+Date.now());
-      }
-    });
-  },1000 * 60);
-};
 
 // Init (bootstrapping)
 app.init = function(){
@@ -533,13 +519,10 @@ app.init = function(){
   app.bindForms();
 
   // Bind logout logout button
-  app.bindLogoutButton();
+  app.bindLogoutButton(); 
 
   // Get the token from localstorage
   app.getSessionToken();
-
-  // Renew token
-  // app.tokenRenewalLoop();
 
   // Load data on page
   app.loadDataOnPage();
